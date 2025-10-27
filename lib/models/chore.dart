@@ -6,18 +6,29 @@ import 'enums.dart';
 class Chore {
   @HiveField(0)
   final String id;
+
   @HiveField(1)
   final String title;
+
   @HiveField(2)
   final String? description;
+
   @HiveField(3)
   final ChoreFrequency frequency;
+
   @HiveField(4)
   final DateTime dueDate;
+
   @HiveField(5)
   final ChoreStatus status;
+
   @HiveField(6)
   final DateTime? lastCompletedAt;
+
+  /// NEW (Phase 2): the current assignee’s roommateId, or null if unassigned.
+  /// We’re NOT changing typeId. We’ll extend the adapter cautiously to remain
+  /// backward compatible with existing saved data.
+  final String? assignedTo;
 
   const Chore({
     required this.id,
@@ -27,6 +38,7 @@ class Chore {
     required this.dueDate,
     required this.status,
     this.lastCompletedAt,
+    this.assignedTo,
   });
 
   Chore copyWith({
@@ -37,6 +49,7 @@ class Chore {
     DateTime? dueDate,
     ChoreStatus? status,
     DateTime? lastCompletedAt,
+    String? assignedTo,
   }) {
     return Chore(
       id: id ?? this.id,
@@ -46,6 +59,7 @@ class Chore {
       dueDate: dueDate ?? this.dueDate,
       status: status ?? this.status,
       lastCompletedAt: lastCompletedAt ?? this.lastCompletedAt,
+      assignedTo: assignedTo ?? this.assignedTo,
     );
   }
 
@@ -62,7 +76,7 @@ class ChoreAdapter extends TypeAdapter<Chore> {
 
   @override
   void write(BinaryWriter writer, Chore obj) {
-    // write 7 fields in this exact order
+    // Original 7 fields (from Phase 1) — keep order EXACT
     writer
       ..writeString(obj.id)
       ..writeString(obj.title)
@@ -73,10 +87,18 @@ class ChoreAdapter extends TypeAdapter<Chore> {
       ..writeByte(_statusToByte(obj.status))
       ..writeBool(obj.lastCompletedAt != null)
       ..writeInt(obj.lastCompletedAt?.millisecondsSinceEpoch ?? 0);
+
+    // NEW (Phase 2): append optional assignedTo, safely
+    // Write a presence flag, then the string (or empty).
+    final hasAssigned = obj.assignedTo != null && obj.assignedTo!.isNotEmpty;
+    writer
+      ..writeBool(hasAssigned)
+      ..writeString(obj.assignedTo ?? '');
   }
 
   @override
   Chore read(BinaryReader reader) {
+    // Read Phase 1 fields in the exact order they were written
     final id = reader.readString();
     final title = reader.readString();
     final hasDesc = reader.readBool();
@@ -87,6 +109,19 @@ class ChoreAdapter extends TypeAdapter<Chore> {
     final hasLast = reader.readBool();
     final lastMs = reader.readInt();
 
+    String? assignedTo;
+
+    // Backward-compat: Phase 1 data ends above. If the record was saved before
+    // we added 'assignedTo', there will be no more bytes. Only read the extra
+    // fields if bytes remain.
+    if (reader.availableBytes >= 1) {
+      final hasAssigned = reader.readBool();
+      if (reader.availableBytes >= 1) {
+        final assignedStr = reader.readString();
+        assignedTo = hasAssigned ? assignedStr : null;
+      }
+    }
+
     return Chore(
       id: id,
       title: title,
@@ -95,6 +130,7 @@ class ChoreAdapter extends TypeAdapter<Chore> {
       dueDate: DateTime.fromMillisecondsSinceEpoch(dueMs),
       status: _byteToStatus(statusCode),
       lastCompletedAt: hasLast ? DateTime.fromMillisecondsSinceEpoch(lastMs) : null,
+      assignedTo: assignedTo,
     );
   }
 

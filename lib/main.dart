@@ -4,7 +4,8 @@ import 'repositories/roommate_repo.dart';
 import 'repositories/chore_repo.dart';
 import 'repositories/penalty_repo.dart';
 import 'seed/seed.dart';
-
+import 'services/scheduler_service.dart';
+import 'services/chore_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +17,29 @@ void main() async {
   final cRepo = ChoreRepo(store);
   final pRepo = PenaltyRepo(store);
 
-  await seedIfEmpty(store: store, roommateRepo: rRepo, choreRepo: cRepo, penaltyRepo: pRepo);
+  await seedIfEmpty(
+    store: store,
+    roommateRepo: rRepo,
+    choreRepo: cRepo,
+    penaltyRepo: pRepo,
+  );
+
+  // TEMP: Phase 2 sanity checks
+  final scheduler = SchedulerService(roommateRepo: rRepo, choreRepo: cRepo);
+  final choreSvc = ChoreService(choreRepo: cRepo, penaltyRepo: pRepo);
+
+  // Assign all pending chores to someone
+  print('Before: chores=${cRepo.getAll().length}, penalties=${pRepo.getAll().length}');
+  await scheduler.assignAllPending();
+
+  final all = cRepo.getAll();
+  if (all.isNotEmpty) {
+    await choreSvc.markMissed(all.first.id);
+  }
+  print('After: chores=${cRepo.getAll().length}, penalties=${pRepo.getAll().length}');
 
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
