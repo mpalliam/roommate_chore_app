@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
+import 'services/storage_service.dart';
+import 'repositories/roommate_repo.dart';
+import 'repositories/chore_repo.dart';
+import 'repositories/penalty_repo.dart';
+import 'seed/seed.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final store = StorageService();
+  await store.init();
+
+  final rRepo = RoommateRepo(store);
+  final cRepo = ChoreRepo(store);
+  final pRepo = PenaltyRepo(store);
+
+  await seedIfEmpty(store: store, roommateRepo: rRepo, choreRepo: cRepo, penaltyRepo: pRepo);
+
   runApp(const MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
