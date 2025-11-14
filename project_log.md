@@ -7,7 +7,7 @@ It also maintains a shared fund that collects penalties, encouraging accountabil
 The app is being built using **Flutter** (Dart language).  
 All code is written manually for learning purposes, with step-by-step understanding instead of copy-paste.
 
----
+---                                                                         
 
 ## 1. Core Features (Current and Planned)
 ✅ Add, edit, and delete chores.  
